@@ -1,0 +1,4 @@
+go mod init windows
+go mod tidy
+go build main.go
+.\main.exe
