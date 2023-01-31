@@ -10,14 +10,14 @@ var (
 	procMsgBox = user32DLL.NewProc("MessageBoxA")
 )
 
-func MessageBoxA(hwnd uint, lpCaption string, lpText string, uType uint) uint {
+func MessageBoxA(hwnd uint32, lpText string, lpCaption string, uType uint32) uint {
 	title_ptr, _ := syscall.BytePtrFromString(lpCaption)
 	content_ptr, _ := syscall.BytePtrFromString(lpText)
 
 	ret, _, _ := procMsgBox.Call(
-		0,
+		uintptr(hwnd),
 		uintptr(unsafe.Pointer(title_ptr)),
 		uintptr(unsafe.Pointer(content_ptr)),
-		0)
+		uintptr(uType))
 	return uint(ret)
 }
