@@ -22,10 +22,9 @@ func main() {
 	}
 
 	fmt.Println("[+] Looking for specific process...")
-	// TODO: implement -> process lookup by name + obtaining proc handle with OpenProcess from kernel32 + using MiniDumpWriteDump from Dbghelp
 
 	var procAccess int32 = 0x1F0FFF
-	for _, p := range procIdArr[:lpcbNeeded] {
+	for _, p := range procIdArr[:lpcbNeeded/4] {
 		if p == 0 {
 			continue
 		}
@@ -35,9 +34,17 @@ func main() {
 			fmt.Printf("[!] Could not open handle to process with PID: %d\n", p)
 			continue
 		}
-		fmt.Printf("[+] Obtained handle: %d\n", procHandle)
+		fmt.Printf("[+] Obtained handle: %d for PID: %d\n", procHandle, p)
 
-		// TODO: get proc name + compare with input + minidump if correct
+		fileNameMaxSize := 256
+		fileNameBuff := make([]byte, fileNameMaxSize)
+
+		res := GetProcessImageFileNameA(procHandle, fileNameBuff, 256)
+		var resolvedProcessFileName string
+		if res != 0 {
+			resolvedProcessFileName = string(fileNameBuff[:])
+			fmt.Printf("[+] Found process fileName: %s\n", resolvedProcessFileName)
+		}
 
 		fmt.Printf("[+] Closing handle: %d\n", procHandle)
 		if !CloseHandle(procHandle) {
