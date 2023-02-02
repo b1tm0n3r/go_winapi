@@ -36,7 +36,7 @@ func CloseHandle(hObject uintptr) bool {
 
 // Base: https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-createfilea
 func CreateFileA(lpFileName string, dwDesiredAccess uint32, dwShareMode uint32, lpSecurityAttributes uintptr,
-	dwCreationDisposition uint, dwFlagsAndAttributes uint, hTemplateFile uintptr) uintptr {
+	dwCreationDisposition uint32, dwFlagsAndAttributes uint32, hTemplateFile uintptr) uintptr {
 	fileName_ptr, _ := syscall.BytePtrFromString(lpFileName)
 
 	ret, _, _ := procCreateFileA.Call(

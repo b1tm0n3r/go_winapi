@@ -2,7 +2,6 @@ package main
 
 import (
 	"syscall"
-	"unsafe"
 )
 
 var (
@@ -11,16 +10,16 @@ var (
 )
 
 // Base: https://learn.microsoft.com/en-us/windows/win32/api/minidumpapiset/nf-minidumpapiset-minidumpwritedump
-func ProcMiniDumpWriteDump(hProcess uintptr, processId uint32, hFile uintptr, dumpType int,
+func MiniDumpWriteDump(hProcess uintptr, processId uint32, hFile uintptr, dumpType uint32,
 	exceptionParam uintptr, userStreamParam uintptr, callbackParam uintptr) bool {
 	ret, _, _ := procMiniDumpWriteDump.Call(
-		uintptr(unsafe.Pointer(&hProcess)),
+		uintptr(hProcess),
 		uintptr(processId),
-		uintptr(unsafe.Pointer(&hFile)),
+		uintptr(hFile),
 		uintptr(dumpType),
-		uintptr(unsafe.Pointer(&exceptionParam)),
-		uintptr(unsafe.Pointer(&userStreamParam)),
-		uintptr(unsafe.Pointer(&callbackParam)))
+		exceptionParam,
+		userStreamParam,
+		callbackParam)
 
 	return uint(ret) == 0 // Return should be non-zero
 }
