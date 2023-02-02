@@ -9,7 +9,7 @@ import (
 
 func main() {
 
-	fmt.Println("[i] Execute with elevated privileges!")
+	fmt.Println("[i] Best to execute with elevated privileges!")
 	fmt.Println("[i] Usage: appName.exe [<PID> <outFileName>]")
 
 	if len(os.Args) == 1 { // no arg given - list processes, and try create handles for each one
@@ -48,7 +48,7 @@ func dumpProcessMemoryToFile(pid uint32, outFileName string) {
 		fmt.Printf("[!] Could not create a dump file!")
 		return
 	}
-	fmt.Printf("[+] Created file and obtained handle.\n", hFile)
+	fmt.Printf("[+] Created file and obtained handle.\n")
 	fmt.Printf("[+] Dumping process memory to file: %s...\n", outFileName)
 	MiniDumpWriteDump(procHandle, pid, hFile, 2, uintptr(0), uintptr(0), uintptr(0))
 	CloseHandle(procHandle)
@@ -61,7 +61,7 @@ func listAllProcesses() {
 	procIdArr := make([]uint32, procArrSize)
 	var lpcbNeeded uint32 = 0
 
-	if EnumProcesses(procIdArr, 1024, &lpcbNeeded) == 0 {
+	if EnumProcesses(procIdArr, 1024, &lpcbNeeded) {
 		fmt.Println("[!] Failed to read the processes. Leaving...")
 		return
 	}
@@ -87,9 +87,8 @@ func listAllProcesses() {
 		fileNameMaxSize := 256
 		fileNameBuff := make([]byte, fileNameMaxSize)
 
-		res := GetProcessImageFileNameA(procHandle, fileNameBuff, 256)
 		var resolvedProcessFileName string
-		if res != 0 {
+		if GetProcessImageFileNameA(procHandle, fileNameBuff, 256) {
 			resolvedProcessFileName = string(fileNameBuff[:])
 			fmt.Printf("[+] Found process fileName: %s\n", resolvedProcessFileName)
 		}

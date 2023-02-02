@@ -48,5 +48,5 @@ func CreateFileA(lpFileName string, dwDesiredAccess uint32, dwShareMode uint32, 
 		uintptr(dwFlagsAndAttributes),
 		uintptr(unsafe.Pointer(&hTemplateFile)))
 
-	return ret // Return should be non-null (returns process handle)
+	return ret // Return should be non-null (returns file handle)
 }
