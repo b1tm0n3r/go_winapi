@@ -10,6 +10,7 @@ var (
 	procOpenProcess        = kernel32_DLL.NewProc("OpenProcess")
 	procGetCurrentProcess  = kernel32_DLL.NewProc("GetCurrentProcess")
 	procVirtualAllocEx     = kernel32_DLL.NewProc("VirtualAllocEx")
+	procVirtualFreeEx      = kernel32_DLL.NewProc("VirtualFreeEx")
 	procWriteProcessMemory = kernel32_DLL.NewProc("WriteProcessMemory")
 	procReadProcessMemory  = kernel32_DLL.NewProc("ReadProcessMemory")
 	procCloseHandle        = kernel32_DLL.NewProc("CloseHandle")
@@ -49,6 +50,14 @@ func VirtualAllocEx(hProcess uintptr, lpAddress uintptr, dwSize uint32,
 		uintptr(flProtect))
 
 	return ret // return value should be non-null
+}
+
+// Base: https://learn.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-virtualfreeex
+func VirtualFreeEx(hProcess uintptr, lpAddress uintptr, dwSize uint32, dwFreeType uint32) bool {
+
+	ret, _, _ := procVirtualFreeEx.Call(hProcess, lpAddress, uintptr(dwSize), uintptr(dwFreeType))
+
+	return uint32(ret) != 0
 }
 
 // Base: https://learn.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-writeprocessmemory
