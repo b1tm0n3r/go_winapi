@@ -31,7 +31,7 @@ func OpenProcess(dwDesiredAccess int32, bInheritHandle bool, dwProcessId uint32)
 	return ret // Return should be non-null (returns process handle)
 }
 
-// Base: https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-getcurrentprocessid
+// Base: https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-getcurrentprocess
 func GetCurrentProcess() uintptr {
 	ret, _, _ := procGetCurrentProcess.Call()
 
