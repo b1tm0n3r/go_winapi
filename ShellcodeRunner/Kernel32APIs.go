@@ -1,5 +1,4 @@
 package main
-package main
 
 import (
 	"syscall"
@@ -7,25 +6,27 @@ import (
 )
 
 var (
-	kernel32_DLL           = syscall.NewLazyDLL("kernel32.dll")
-	procOpenProcess        = kernel32_DLL.NewProc("OpenProcess")
-	procGetCurrentProcess  = kernel32_DLL.NewProc("GetCurrentProcess")
-	procVirtualAllocEx     = kernel32_DLL.NewProc("VirtualAllocEx")
+	kernel32_DLL            = syscall.NewLazyDLL("kernel32.dll")
+	procVirtualAllocEx      = kernel32_DLL.NewProc("VirtualAllocEx")
+	procCreateThread        = kernel32_DLL.NewProc("CreateThread")
+	procGetCurrentProcess   = kernel32_DLL.NewProc("GetCurrentProcess")
+	procWriteProcessMemory  = kernel32_DLL.NewProc("WriteProcessMemory")
+	procWaitForSingleObject = kernel32_DLL.NewProc("WaitForSingleObject")
 )
 
-// Base: https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-openprocess
-func OpenProcess(dwDesiredAccess int32, bInheritHandle bool, dwProcessId uint32) uintptr {
-	inherit_boolToUint := 0
-	if bInheritHandle == true {
-		inherit_boolToUint = 1
-	}
+// Base: https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-createthread
+func CreateThread(lpThreadAttributes uintptr, dwStackSize uint32, lpStartAddress uintptr,
+	lpParameter uintptr, dwCreationFlags uint32, lpThreadId uintptr) uintptr {
 
-	ret, _, _ := procOpenProcess.Call(
-		uintptr(dwDesiredAccess),
-		uintptr(inherit_boolToUint),
-		uintptr(dwProcessId))
+	ret, _, _ := procCreateThread.Call(
+		lpThreadAttributes,
+		uintptr(dwStackSize),
+		lpStartAddress,
+		lpParameter,
+		uintptr(dwCreationFlags),
+		lpThreadId)
 
-	return ret // Return should be non-null (returns process handle)
+	return ret
 }
 
 // Base: https://learn.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-virtualallocex
@@ -40,6 +41,29 @@ func VirtualAllocEx(hProcess uintptr, lpAddress uintptr, dwSize uint32,
 		uintptr(flProtect))
 
 	return ret // return value should be non-null
+}
+
+// Base: https://learn.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-writeprocessmemory
+func WriteProcessMemory(hProcess uintptr, lpBaseAddress uintptr, lpBuffer []byte,
+	nSize uint32, lpNumberOfBytesWritten *uintptr) uint32 {
+
+	ret, _, _ := procWriteProcessMemory.Call(
+		hProcess,
+		lpBaseAddress,
+		uintptr(unsafe.Pointer(&lpBuffer[0])),
+		uintptr(nSize),
+		uintptr(unsafe.Pointer(lpNumberOfBytesWritten)))
+
+	return uint32(ret) // return value should be non-zero
+}
+
+// Base: https://learn.microsoft.com/en-us/windows/win32/api/synchapi/nf-synchapi-waitforsingleobject
+func WaitForSingleObject(hHandle uintptr, dwMilliseconds uint32) uint32 {
+	ret, _, _ := procWaitForSingleObject.Call(
+		hHandle,
+		uintptr(dwMilliseconds))
+
+	return uint32(ret)
 }
 
 // Base: https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-getcurrentprocess
