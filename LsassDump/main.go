@@ -20,7 +20,7 @@ func main() {
 		snapshot := CreateToolhelp32Snapshot(syscall.TH32CS_SNAPPROCESS, 0)
 
 		if snapshot == 0 {
-			fmt.Println("[!] Could not obtain handle to current process, aborting...")
+			fmt.Println("[!] Could not obtain snapshot, aborting...")
 			return
 		}
 		fmt.Printf("[+] Current Snapshot handle: %d\n", snapshot)
