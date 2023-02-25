@@ -32,10 +32,11 @@ type PIMAGE_DOS_HEADER struct {
 	e_lfanew   uint32
 }
 
+// x64 compatible by default, can be changed to IMAGE_OPTIONAL_HEADER32
 type PIMAGE_NT_HEADERS struct {
 	Signature      uint32
 	FileHeader     IMAGE_FILE_HEADER
-	OptionalHeader IMAGE_OPTIONAL_HEADER
+	OptionalHeader IMAGE_OPTIONAL_HEADER64
 }
 
 type IMAGE_FILE_HEADER struct {
@@ -48,7 +49,7 @@ type IMAGE_FILE_HEADER struct {
 	Characteristics      uint16
 }
 
-type IMAGE_OPTIONAL_HEADER struct {
+type IMAGE_OPTIONAL_HEADER32 struct {
 	Magic                       uint16
 	MajorLinkerVersion          uint8
 	MinorLinkerVersion          uint8
@@ -80,6 +81,39 @@ type IMAGE_OPTIONAL_HEADER struct {
 	LoaderFlags                 uint32
 	NumberOfRvaAndSizes         uint32
 	DataDirectory               [IMAGE_NUMBEROF_DIRECTORY_ENTRIES]IMAGE_DATA_DIRECTORY
+}
+
+type IMAGE_OPTIONAL_HEADER64 struct {
+	Magic                       uint16
+	MajorLinkerVersion          uint8
+	MinorLinkerVersion          uint8
+	SizeOfCode                  uint32
+	SizeOfInitializedData       uint32
+	SizeOfUninitializedData     uint32
+	AddressOfEntryPoint         uint64
+	BaseOfCode                  uint64
+	ImageBase                   uint64
+	SectionAlignment            uint32
+	FileAlignment               uint32
+	MajorOperatingSystemVersion uint16
+	MinorOperatingSystemVersion uint16
+	MajorImageVersion           uint16
+	MinorImageVersion           uint16
+	MajorSubsystemVersion       uint16
+	MinorSubsystemVersion       uint16
+	Win32VersionValue           uint32
+	SizeOfImage                 uint32
+	SizeOfHeaders               uint32
+	CheckSum                    uint32
+	Subsystem                   uint16
+	DllCharacteristics          uint16
+	SizeOfStackReserve          uint64
+	SizeOfStackCommit           uint64
+	SizeOfHeapReserve           uint64
+	SizeOfHeapCommit            uint64
+	LoaderFlags                 uint32
+	NumberOfRvaAndSizes         uint32
+	DataDirectory               [16]IMAGE_DATA_DIRECTORY
 }
 
 type IMAGE_DATA_DIRECTORY struct {

@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"strings"
 	"syscall"
 	"unsafe"
 )
@@ -59,9 +60,16 @@ func main() {
 
 	fmt.Printf("[+] Iterating over number of sections: %d\n", ntdllHeader.FileHeader.NumberOfSections)
 	for i := uint32(0); i < uint32(ntdllHeader.FileHeader.NumberOfSections); i++ {
-		sectionHeader := (*PIMAGE_SECTION_HEADER)(unsafe.Pointer(uintptr(unsafe.Pointer(IMAGE_FIRST_SECTION(ntdllHeader))) + uintptr(IMAGE_SIZEOF_SECTION_HEADER*i)))
+		sectionHeader := (*PIMAGE_SECTION_HEADER)(unsafe.Pointer(uintptr(unsafe.Pointer(IMAGE_FIRST_SECTION(ntdllHeader))) + uintptr(IMAGE_SIZEOF_SECTION_HEADER*i) + uintptr(4))) // add 4 - probably bug somewhere earlier, it sets padding correctly
 		fmt.Printf("[+] Processed section address: %x\n", unsafe.Pointer(sectionHeader))
 
+		fmt.Printf("[+] Processed section name: %s\n", string(sectionHeader.Name[:]))
+		fmt.Printf("[+] Processed section name: %x\n", sectionHeader.Name)
+
+		if strings.HasPrefix(string(sectionHeader.Name[:]), ".text") {
+			fmt.Printf("[+] Found .text section at address: %x\n", unsafe.Pointer(sectionHeader))
+
+		}
 	}
 
 	CloseHandle(hNtdllFile)
