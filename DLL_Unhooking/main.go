@@ -6,34 +6,6 @@ import (
 	"unsafe"
 )
 
-type MODULEINFO struct {
-	BaseOfDll   uintptr
-	SizeOfImage uint32
-	EntryPoint  uintptr
-}
-
-type PIMAGE_DOS_HEADER struct {
-	e_magic    uint16
-	e_cblp     uint16
-	e_cp       uint16
-	e_crlc     uint16
-	e_cparhdr  uint16
-	e_minalloc uint16
-	e_maxalloc uint16
-	e_ss       uint16
-	e_sp       uint16
-	e_csum     uint16
-	e_ip       uint16
-	e_cs       uint16
-	e_lfarlc   uint16
-	e_ovno     uint16
-	e_res      [4]uint16
-	e_oemid    uint16
-	e_oeminfo  uint16
-	e_res2     [10]uint16
-	e_lfanew   uint32
-}
-
 func main() {
 
 	fmt.Println("[+] DLL Unhooking.")
@@ -78,10 +50,40 @@ func main() {
 	}
 	fmt.Printf("[+] Obtained view of file, start addr: %x\n", viewOfFilePtr)
 
-	ntdllHeader := (*PIMAGE_DOS_HEADER)(unsafe.Pointer(modinfo.BaseOfDll))
-	fmt.Printf("[+] NtDll header e_lfanew val: %x\n", ntdllHeader.e_lfanew)
+	fmt.Printf("[+] Base dll location: %x\n", modinfo.BaseOfDll)
+	dosHeader := (*PIMAGE_DOS_HEADER)(unsafe.Pointer(modinfo.BaseOfDll))
+	fmt.Printf("[+] DOS header e_lfanew val: %x\n", dosHeader.e_lfanew)
+	fmt.Printf("[+] Base NtDll header location: %x\n", (modinfo.BaseOfDll + uintptr(dosHeader.e_lfanew)))
+	ntdllHeader := (*PIMAGE_NT_HEADERS)(unsafe.Pointer(modinfo.BaseOfDll + uintptr(dosHeader.e_lfanew)))
+	fmt.Printf("[+] NtDll header (optional) Magic: %x\n", ntdllHeader.OptionalHeader.Magic)
+
+	fmt.Printf("[+] Iterating over number of sections: %d\n", ntdllHeader.FileHeader.NumberOfSections)
+	for i := uint32(0); i < uint32(ntdllHeader.FileHeader.NumberOfSections); i++ {
+		sectionHeader := (*PIMAGE_SECTION_HEADER)(unsafe.Pointer(uintptr(unsafe.Pointer(IMAGE_FIRST_SECTION(ntdllHeader))) + uintptr(IMAGE_SIZEOF_SECTION_HEADER*i)))
+		fmt.Printf("[+] Processed section address: %x\n", unsafe.Pointer(sectionHeader))
+
+	}
 
 	CloseHandle(hNtdllFile)
 	CloseHandle(hNtdllFileMapping)
 	CloseHandle(hProcess)
+}
+
+func IMAGE_FIRST_SECTION(ntheader *PIMAGE_NT_HEADERS) *PIMAGE_SECTION_HEADER {
+	// Calculate the address of the first section header
+	fileHeaderSize := unsafe.Sizeof(ntheader.FileHeader)
+	optionalHeaderSize := uintptr(ntheader.FileHeader.SizeOfOptionalHeader)
+	firstSectionOffset := uintptr(unsafe.Pointer(ntheader)) + fileHeaderSize + optionalHeaderSize
+
+	// Iterate over the section headers and find the first one
+	sectionHeaderSize := unsafe.Sizeof(PIMAGE_SECTION_HEADER{})
+	sectionHeaderPtr := (*PIMAGE_SECTION_HEADER)(unsafe.Pointer(firstSectionOffset))
+	for i := 0; uint16(i) < ntheader.FileHeader.NumberOfSections; i++ {
+		if sectionHeaderPtr.SizeOfRawData != 0 {
+			return sectionHeaderPtr
+		}
+		sectionHeaderPtr = (*PIMAGE_SECTION_HEADER)(unsafe.Pointer(uintptr(unsafe.Pointer(sectionHeaderPtr)) + sectionHeaderSize))
+	}
+
+	return nil
 }
