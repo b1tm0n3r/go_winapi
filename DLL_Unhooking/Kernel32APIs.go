@@ -11,6 +11,7 @@ var (
 	procCreateFileMappingA = kernel32_DLL.NewProc("CreateFileMappingA")
 	procGetCurrentProcess  = kernel32_DLL.NewProc("GetCurrentProcess")
 	procGetModuleHandleA   = kernel32_DLL.NewProc("GetModuleHandleA")
+	procMapViewOfFile      = kernel32_DLL.NewProc("MapViewOfFile")
 	procCloseHandle        = kernel32_DLL.NewProc("CloseHandle")
 )
 
@@ -60,6 +61,20 @@ func CreateFileMappingA(hFile uintptr, lpFileMappingAttributes uintptr, flProtec
 		lpName)
 
 	return ret // Return should be non-null (returns file mapping handle)
+}
+
+// Base: https://learn.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-mapviewoffile
+func MapViewOfFile(hFileMappingObject uintptr, dwDesiredAccess uint32, dwFileOffsetHigh uint32,
+	dwFileOffsetLow uint32, dwNumberOfBytesToMap uint32) uintptr {
+
+	ret, _, _ := procMapViewOfFile.Call(
+		hFileMappingObject,
+		uintptr(dwDesiredAccess),
+		uintptr(dwFileOffsetHigh),
+		uintptr(dwFileOffsetLow),
+		uintptr(dwNumberOfBytesToMap))
+
+	return ret // retrun should be non-null (starting address of mapped view)
 }
 
 // Base: https://learn.microsoft.com/en-us/windows/win32/api/handleapi/nf-handleapi-closehandle

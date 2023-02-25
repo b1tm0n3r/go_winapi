@@ -12,6 +12,28 @@ type MODULEINFO struct {
 	EntryPoint  uintptr
 }
 
+type PIMAGE_DOS_HEADER struct {
+	e_magic    uint16
+	e_cblp     uint16
+	e_cp       uint16
+	e_crlc     uint16
+	e_cparhdr  uint16
+	e_minalloc uint16
+	e_maxalloc uint16
+	e_ss       uint16
+	e_sp       uint16
+	e_csum     uint16
+	e_ip       uint16
+	e_cs       uint16
+	e_lfarlc   uint16
+	e_ovno     uint16
+	e_res      [4]uint16
+	e_oemid    uint16
+	e_oeminfo  uint16
+	e_res2     [10]uint16
+	e_lfanew   uint32
+}
+
 func main() {
 
 	fmt.Println("[+] DLL Unhooking.")
@@ -48,4 +70,18 @@ func main() {
 		return
 	}
 	fmt.Printf("[+] Obtained ntdll.dll file mapping: %x\n", hNtdllFileMapping)
+
+	viewOfFilePtr := MapViewOfFile(hNtdllFileMapping, syscall.FILE_MAP_READ, 0, 0, 0)
+	if viewOfFilePtr == 0 {
+		fmt.Println("[!] Could not obtain view of file with file mapping, aborting...")
+		return
+	}
+	fmt.Printf("[+] Obtained view of file, start addr: %x\n", viewOfFilePtr)
+
+	ntdllHeader := (*PIMAGE_DOS_HEADER)(unsafe.Pointer(modinfo.BaseOfDll))
+	fmt.Printf("[+] NtDll header e_lfanew val: %x\n", ntdllHeader.e_lfanew)
+
+	CloseHandle(hNtdllFile)
+	CloseHandle(hNtdllFileMapping)
+	CloseHandle(hProcess)
 }
