@@ -12,7 +12,9 @@ var (
 	procGetCurrentProcess  = kernel32_DLL.NewProc("GetCurrentProcess")
 	procGetModuleHandleA   = kernel32_DLL.NewProc("GetModuleHandleA")
 	procMapViewOfFile      = kernel32_DLL.NewProc("MapViewOfFile")
+	procVirtualProtect     = kernel32_DLL.NewProc("VirtualProtect")
 	procCloseHandle        = kernel32_DLL.NewProc("CloseHandle")
+	procCopyMemory         = kernel32_DLL.NewProc("RtlCopyMemory")
 )
 
 // Base: https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-getcurrentprocess
@@ -77,9 +79,30 @@ func MapViewOfFile(hFileMappingObject uintptr, dwDesiredAccess uint32, dwFileOff
 	return ret // retrun should be non-null (starting address of mapped view)
 }
 
+// Base: https://learn.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-virtualprotect
+func VirtualProtect(lpAddress uintptr, dwSize uint32, flNewProtect uint32, lpflOldProtect *uint32) bool {
+
+	ret, _, _ := procVirtualProtect.Call(
+		lpAddress,
+		uintptr(dwSize),
+		uintptr(flNewProtect),
+		uintptr(unsafe.Pointer(lpflOldProtect)))
+
+	return uint(ret) != 0 // return value is nonzero on success.
+}
+
 // Base: https://learn.microsoft.com/en-us/windows/win32/api/handleapi/nf-handleapi-closehandle
 func CloseHandle(hObject uintptr) bool {
 	ret, _, _ := procCloseHandle.Call(uintptr(unsafe.Pointer(&hObject)))
 
-	return uint(ret) == 0
+	return uint(ret) != 0 // return value is nonzero on success.
+}
+
+// Base: https://learn.microsoft.com/en-us/previous-versions/windows/desktop/legacy/aa366535(v=vs.85)
+func CopyMemory(destination uintptr, source uintptr, length uint32) {
+
+	procCopyMemory.Call(
+		destination,
+		source,
+		uintptr(length))
 }

